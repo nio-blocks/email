@@ -13,8 +13,6 @@ from nio.metadata.properties.timedelta import TimeDeltaProperty
 from nio.metadata.properties.string import StringProperty
 from nio.metadata.properties.int import IntProperty
 from nio.metadata.properties.holder import PropertyHolder
-from nio.modules.threading.imports import Lock, Thread
-from nio.modules.scheduler.imports import Job
 
 
 HTML_MSG_FORMAT = """\
@@ -47,6 +45,15 @@ class Message(PropertyHolder):
 
 
 class SMTPConnection(object):
+
+    """ A class to manage the guts of the SMTP connection.
+
+    Args:
+        config (SMTPConfig): Email block property encapsulating
+            SMTP configuration details.
+        logger (Logger): NIO logger from the enclosing block.
+
+    """
     
     def __init__(self, config, logger):
         self.host = config.host
@@ -56,16 +63,17 @@ class SMTPConnection(object):
         self.timeout = config.timeout
         self._logger = logger
         self._conn = None
-        self._conn_lock = Lock()
-        self._send_lock = Lock()
         self._send_attempts = 0
 
     def connect(self):
-        self._conn_lock.acquire()
-        
+        """ Connects to the configured SMTP server.
+
+        """
         self._logger.debug(
             "Connecting to SMTP: %s:%d" % (self.host, self.port)
         )
+        
+        # attempt to connect to the SMTP server and authenticate.
         try:
             self._conn = SMTP_SSL(
                 host=self.host,
@@ -76,38 +84,51 @@ class SMTPConnection(object):
         except Exception as e:
             self._logger.error("Error connecting to SMTP server: %s" % e)
             raise e
-        finally:
-            self._conn_lock.release()
 
     def _authenticate(self):
+        """ Log in an existing SMTP connection.
+
+        """
         self._logger.debug(
             "Logging into %s as %s" % (self.host, self.account)
         )
         self._conn.login(self.account, self.password)
 
     def sendmail(self, frm, to, msg):
+        """ Send a message via SMTP.
+
+        Args:
+            frm (str): The 'from' email address.
+            to (str): The 'to' email address.
+            msg (str): The message.
+
+        Returns:
+            None
+
+        """
         self._logger.debug("Sending mail to %s" % to)
         try:
-            self._conn_lock.acquire()
+
+            # acquire the connection lock and send the message
             self._conn.sendmail(frm, to, msg)
-            self._conn_lock.release()
             self._send_attempts = -1
         except SMTPServerDisconnected as e:
+
+            # if our connection is dead when we send, release the
+            # connection lock and attempt to reconnect.
             self._logger.error(
                 "SMTP server disconnected, reconnecting..."
             )
-            self._conn_lock.release()
             self.connect()
+            
+            # we reraise the exception so we can do some generic
+            # bookkeeping.
             raise e
         except Exception as e:
             self._logger.error("Error while sending: %s" % e)
 
-            # release the connection lock if it's taken
-            if not self._conn_lock.acquire(False):
-                self._conn_lock.release()
-
             # increment the send attempts and make sure we're still
-            # willing to try again
+            # willing to try again. If not, abort.
             self._send_attempts += 1
             if self._send_attempts < self.max_send_retries:
                 self.sendmail(frm, to, msg)
@@ -115,61 +136,100 @@ class SMTPConnection(object):
                 raise e
 
     def disconnect(self):
+        """ Drop the connection to the configured SMTP server.
+
+        """
         try:
-            self._conn_lock.acquire()
             self._logger.debug("Disconnecting from %s" % self.host)
             self._conn.quit()
         except Exception as e:
             self._logger.error("Error while disconnecting: %s" % e)
-        finally:
-            self._conn_lock.release()
 
 @Discoverable(DiscoverableType.block)
 class Email(Block):
-    
+    """ A block for sending email.
+
+    Properties:
+        to (list(Identity)): A list of recipient identities (name/email).
+        server (SMTPConfig): host, port, account, etc. for SMTP server.
+        message (Message): The message contents and sender name.
+
+    """
     to = ListProperty(Identity)
     server = ObjectProperty(SMTPConfig)
     message = ObjectProperty(Message)
     
     def __init__(self):
         super().__init__()
-        self._smtp_conn = None
         self._retry_conn = None
 
-    def configure(self, context):
-        super().configure(context)
-        self._smtp_conn = SMTPConnection(self.server, self._logger)
-
-    def stop(self):
-        super().stop()
-        self._smtp_conn.disconnect()
-
     def process_signals(self, signals):
+        """ For each signal object, build the configured message and send
+        it to each recipient.
 
-        # connect to the smtp server before we start sending
-        self._smtp_conn.connect()
+        Note that this method does not return until all of the messages are
+        successfully sent (i.e. all the sendmail threads have exited). This
+        avoids dropped messages in the event that the disconnect thread gets
+        scheduled before all sendmail threads are complete.
 
-        # handle all the incoming signals
+        Args:
+            signals (list(Signal)): The signals to process.
+
+        Returns:
+            None
+
+        """
+        # make a new connection to the SMTP server each time we get a new
+        # batch of signals.
+        smtp_conn = SMTPConnection(self.server, self._logger)
+        smtp_conn.connect()
+
+        # handle each incoming signal
         for signal in signals:
 
             # TODO: eval_signal should not be so permissive. Returning True
             # as an error condition was a hack to accomodate the scheduler...
             subject = eval_signal(signal, self.message.subject, self._logger)
             body = eval_signal(signal, self.message.body, self._logger)
-            self._send_to_all(subject, body)
+            self._send_to_all(smtp_conn, subject, body)
 
-        self._smtp_conn.disconnect()
+        # drop the SMTP connection after each round of signals
+        smtp_conn.disconnect()
 
-    def _send_to_all(self, subject, body):
+    def _send_to_all(self, conn, subject, body):
+        """ Build a message based on the provided content and send it to
+        each of the configured recipients.
+
+        Args:
+            conn (SMTPConnection): The connection over which to send
+                the message.
+            subject (str): The desired subject line of the message.
+            body (str): The desired message body.
+
+        Returns:
+            None
+
+        """
         sender = self.message.sender
+        msg = self._construct_msg(subject, body)
         for rcp in self.to:
-            msg = self._construct_msg(subject, body, rcp)
-            Thread(
-                target=self._smtp_conn.sendmail,
-                args=(sender, rcp.email, msg.as_string())
-            ).run()
+            # customize the message to each recipient
+            msg['To'] = rcp.name
+            conn.sendmail(sender, rcp.email, msg.as_string())
+    
+    def _construct_msg(self, subject, body):
+        """ Construct the multipart message. Mail clients unable to
+        render HTML will default to plaintext.
 
-    def _construct_msg(self, subject, body, recipient):
+        Args:
+            subject (str): The subject line.
+            body (str): The message body.
+        
+        Returns:
+            msg (MIMEMultipart): A message containing generic
+                headers, and HTML version, and a plaintext version.
+
+        """
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
         msg['From'] = self.message.sender
