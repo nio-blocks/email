@@ -40,8 +40,8 @@ class TestEmail(NIOBlockTestCase):
             },
             "message": {
                 "sender": "Anna Administrator",
-                "subject": "'Diagnostics'",
-                "body": "'This is a test (%s)' % str(signal.data)"
+                "subject": "Diagnostics",
+                "body": "This is a test {{$data}}"
             }
         }
 

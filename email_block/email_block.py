@@ -6,10 +6,10 @@ from smtplib import SMTP_SSL, SMTPServerDisconnected
 
 from nio.common.discovery import Discoverable, DiscoverableType
 from nio.common.block.base import Block
-from nio.util import eval_signal
 from nio.metadata.properties.list import ListProperty
 from nio.metadata.properties.object import ObjectProperty
 from nio.metadata.properties.timedelta import TimeDeltaProperty
+from nio.metadata.properties.expression import ExpressionProperty
 from nio.metadata.properties.string import StringProperty
 from nio.metadata.properties.int import IntProperty
 from nio.metadata.properties.holder import PropertyHolder
@@ -23,7 +23,6 @@ HTML_MSG_FORMAT = """\
   </body>
 </html>
 """
-
 
 class Identity(PropertyHolder):
     name = StringProperty(default='John Doe')
@@ -40,8 +39,8 @@ class SMTPConfig(PropertyHolder):
 
 class Message(PropertyHolder):
     sender = StringProperty(default='')
-    subject = StringProperty(default='')
-    body = StringProperty(default='')
+    subject = ExpressionProperty(default='<No Value>')
+    body = ExpressionProperty(default='<No Value>')
 
 
 class SMTPConnection(object):
@@ -187,10 +186,8 @@ class Email(Block):
         # handle each incoming signal
         for signal in signals:
 
-            # TODO: eval_signal should not be so permissive. Returning True
-            # as an error condition was a hack to accomodate the scheduler...
-            subject = eval_signal(signal, self.message.subject, self._logger)
-            body = eval_signal(signal, self.message.body, self._logger)
+            subject = self.message.subject(signal)
+            body = self.message.body(signal)
             self._send_to_all(smtp_conn, subject, body)
 
         # drop the SMTP connection after each round of signals
