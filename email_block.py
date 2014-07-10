@@ -1,9 +1,6 @@
-import logging
-
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from smtplib import SMTP_SSL, SMTPServerDisconnected
-
 from nio.common.discovery import Discoverable, DiscoverableType
 from nio.common.block.base import Block
 from nio.metadata.properties.list import ListProperty
