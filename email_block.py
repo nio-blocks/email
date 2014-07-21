@@ -183,8 +183,25 @@ class Email(Block):
         # handle each incoming signal
         for signal in signals:
 
-            subject = self.message.subject(signal)
-            body = self.message.body(signal)
+            try:
+                subject = self.message.subject(signal)
+            except Exception as e:
+                subject = self.message.subject.default
+                self._logger.error(
+                    "Email subject evaluation failed: {0}: {1}".format(
+                        type(e).__name__, str(e))
+                )
+
+            try:
+                body = self.message.body(signal)
+            except Exception as e:
+                body = self.message.body.default
+                self._logger.error(
+                    "Email body evaluation failed: {0}: {1}".format(
+                        type(e).__name__, str(e))
+                )
+
+                
             self._send_to_all(smtp_conn, subject, body)
 
         # drop the SMTP connection after each round of signals

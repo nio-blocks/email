@@ -1,5 +1,5 @@
 from unittest.mock import patch, MagicMock, ANY
-from notification.email_block.email_block import Email
+from email_block.email_block import Email
 from nio.util.support.block_test_case import NIOBlockTestCase
 from nio.modules.threading.imports import Event
 from nio.common.signal.base import Signal
@@ -57,8 +57,8 @@ class TestEmail(NIOBlockTestCase):
             }
         ])
         
-    @patch("notification.email_block.email_block.SMTPConnection.sendmail")
-    @patch("notification.email_block.email_block.SMTPConnection.connect")
+    @patch("email_block.email_block.SMTPConnection.sendmail")
+    @patch("email_block.email_block.SMTPConnection.connect")
     def test_send_one_to_one(self, mock_connect, mock_send):
         process_event = Event()
         signals = [TestSignal(3)]
@@ -75,8 +75,8 @@ class TestEmail(NIOBlockTestCase):
         )
         blk.stop()
 
-    @patch("notification.email_block.email_block.SMTPConnection.sendmail")
-    @patch("notification.email_block.email_block.SMTPConnection.connect")
+    @patch("email_block.email_block.SMTPConnection.sendmail")
+    @patch("email_block.email_block.SMTPConnection.connect")
     def test_send_one_to_multiple(self, mock_connect, mock_send):
         process_event = Event()
         signals = [TestSignal(23)]
@@ -89,8 +89,8 @@ class TestEmail(NIOBlockTestCase):
         self.assertEqual(3, mock_send.call_count)
         blk.stop()
 
-    @patch("notification.email_block.email_block.SMTPConnection.sendmail")
-    @patch("notification.email_block.email_block.SMTPConnection.connect")
+    @patch("email_block.email_block.SMTPConnection.sendmail")
+    @patch("email_block.email_block.SMTPConnection.connect")
     def test_send_multiple_to_multiple(self, mock_connect, mock_send):
         process_event = Event()
         signals = [TestSignal(23), TestSignal(32), TestSignal(42)]
@@ -102,3 +102,20 @@ class TestEmail(NIOBlockTestCase):
         process_event.wait(1)
         self.assertEqual(9, mock_send.call_count)
         blk.stop()
+
+    @patch("email_block.email_block.Email._send_to_all")
+    @patch("email_block.email_block.SMTPConnection.connect")
+    def test_body_syntax_err(self, mock_connect, mock_send):
+        process_event = Event()
+        signals = [TestSignal(23)]
+        self._add_recipients()
+        blk = EmailTestBlock(process_event)
+        self.config['message']['subject'] = "{{$data + 'astring'}}"
+        self.config['message']['body'] = "{{dict($data)}}"
+        self.configure_block(blk, self.config)
+        blk.start()
+        blk.process_signals(signals)
+        process_event.wait(1)
+        mock_send.assert_called_once_with(ANY, '<No Value>', '<No Value>')
+        blk.stop()
+        
