@@ -22,22 +22,22 @@ HTML_MSG_FORMAT = """\
 """
 
 class Identity(PropertyHolder):
-    name = StringProperty(default='John Doe')
-    email = StringProperty(default='')
+    name = StringProperty(title='Name', default='John Doe')
+    email = StringProperty(title='Email Address', default='')
 
 
 class SMTPConfig(PropertyHolder):
-    host = StringProperty(default='localhost')
-    port = IntProperty(default=0)
-    account = StringProperty(default='')
-    password = StringProperty(default='')
-    timeout = IntProperty(default=10)
+    host = StringProperty(title='SMTP Host', default='localhost')
+    port = IntProperty(title='SMTP Port', default=0)
+    account = StringProperty(title='Account', default='')
+    password = StringProperty(title='Password'default='')
+    timeout = IntProperty(title='Timeout', default=10)
 
 
 class Message(PropertyHolder):
-    sender = StringProperty(default='')
-    subject = ExpressionProperty(default='<No Value>')
-    body = ExpressionProperty(default='<No Value>')
+    sender = StringProperty(title='Sender', default='')
+    subject = ExpressionProperty(title='Subject', default='<No Value>')
+    body = ExpressionProperty(title='Body', default='<No Value>')
 
 
 class SMTPConnection(object):
@@ -151,9 +151,9 @@ class Email(Block):
         message (Message): The message contents and sender name.
 
     """
-    to = ListProperty(Identity)
-    server = ObjectProperty(SMTPConfig)
-    message = ObjectProperty(Message)
+    to = ListProperty(title='Receiver', Identity)
+    server = ObjectProperty(title='Server', SMTPConfig)
+    message = ObjectProperty(title='Message', Message)
     
     def __init__(self):
         super().__init__()
