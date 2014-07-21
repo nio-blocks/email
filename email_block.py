@@ -30,7 +30,7 @@ class SMTPConfig(PropertyHolder):
     host = StringProperty(title='SMTP Host', default='localhost')
     port = IntProperty(title='SMTP Port', default=0)
     account = StringProperty(title='Account', default='')
-    password = StringProperty(title='Password'default='')
+    password = StringProperty(title='Password', default='')
     timeout = IntProperty(title='Timeout', default=10)
 
 
@@ -151,9 +151,9 @@ class Email(Block):
         message (Message): The message contents and sender name.
 
     """
-    to = ListProperty(title='Receiver', Identity)
-    server = ObjectProperty(title='Server', SMTPConfig)
-    message = ObjectProperty(title='Message', Message)
+    to = ListProperty(Identity, title='Receiver')
+    server = ObjectProperty(SMTPConfig, title='Server')
+    message = ObjectProperty(Message, title='Message')
     
     def __init__(self):
         super().__init__()
