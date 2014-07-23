@@ -1,5 +1,5 @@
 from unittest.mock import patch, MagicMock, ANY
-from email_block.email_block import Email
+from ..email_block import Email
 from nio.util.support.block_test_case import NIOBlockTestCase
 from nio.modules.threading import Event
 from nio.common.signal.base import Signal
