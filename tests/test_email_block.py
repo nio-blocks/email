@@ -1,12 +1,13 @@
 from unittest.mock import patch, MagicMock, ANY
-from ..email_block import Email
+from ..email_block import Email, SMTPConnection, SMTPConfig
 from nio.util.support.block_test_case import NIOBlockTestCase
 from nio.modules.threading import Event
 from nio.common.signal.base import Signal
+from smtplib import SMTP_SSL, SMTPServerDisconnected
 
 
 class EmailTestBlock(Email):
-    
+
     def __init__(self, event):
         super().__init__()
         self._e = event
@@ -46,7 +47,7 @@ class TestEmail(NIOBlockTestCase):
         }
 
     def _add_recipients(self):
-        self.config['to'].extend([                
+        self.config['to'].extend([
             {
                 "name": "Suzanne",
                 "email": "suzy@mail.com"
@@ -56,7 +57,7 @@ class TestEmail(NIOBlockTestCase):
                 "email": "jimmy@mail.com"
             }
         ])
-        
+
     @patch("email_block.email_block.SMTPConnection.sendmail")
     @patch("email_block.email_block.SMTPConnection.connect")
     def test_send_one_to_one(self, mock_connect, mock_send):
@@ -73,6 +74,39 @@ class TestEmail(NIOBlockTestCase):
             self.config['to'][0]['email'],
             ANY
         )
+        blk.stop()
+
+    @patch("email_block.email_block.SMTPConnection.sendmail")
+    @patch("email_block.email_block.SMTPConnection.connect",
+           side_effect=Exception('mock connection fail'))
+    def test_conn_error(self, mock_connect, mock_send):
+        process_event = Event()
+        signals = [TestSignal(3)]
+        blk = EmailTestBlock(process_event)
+        self.configure_block(blk, self.config)
+        blk._logger.error = MagicMock()
+        blk.start()
+        blk.process_signals(signals)
+        process_event.wait(1)
+        self.assertEqual(0, mock_send.call_count)
+        self.assertEqual(1, blk._logger.error.call_count)
+        blk.stop()
+
+    @patch("email_block.email_block.SMTPConnection.sendmail",
+           side_effect=Exception('mock connection fail'))
+    @patch("email_block.email_block.SMTPConnection.connect")
+    @patch("email_block.email_block.SMTPConnection.disconnect")
+    def test_sendmail_error(self, mock_disconnect, mock_connect, mock_send):
+        process_event = Event()
+        signals = [TestSignal(3)]
+        blk = EmailTestBlock(process_event)
+        self.configure_block(blk, self.config)
+        blk._logger.error = MagicMock()
+        blk.start()
+        blk.process_signals(signals)
+        process_event.wait(1)
+        self.assertEqual(1, mock_send.call_count)
+        self.assertEqual(1, blk._logger.error.call_count)
         blk.stop()
 
     @patch("email_block.email_block.SMTPConnection.sendmail")
@@ -118,4 +152,16 @@ class TestEmail(NIOBlockTestCase):
         process_event.wait(1)
         mock_send.assert_called_once_with(ANY, '<No Value>', '<No Value>')
         blk.stop()
-        
+
+    def test_sendmail_retry(self):
+        cfg = SMTPConfig()
+        smtp = SMTPConnection(cfg, None)
+        smtp._logger = MagicMock()
+        smtp._conn = MagicMock(side_effect=Exception('error'))
+        smtp._conn.sendmail = MagicMock(side_effect=Exception('error'))
+        self.assertRaises(Exception, smtp.sendmail,
+                          ('from', 'to', 'message'))
+        try:
+            smtp.sendmail('from', 'to', 'message')
+        except:
+            self.assertEqual(2, smtp._conn.sendmail.call_count)

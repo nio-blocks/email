@@ -27,10 +27,10 @@ class Identity(PropertyHolder):
 
 
 class SMTPConfig(PropertyHolder):
-    host = StringProperty(title='SMTP Host', default='localhost')
-    port = IntProperty(title='SMTP Port', default=0)
-    account = StringProperty(title='Account', default='')
-    password = StringProperty(title='Password', default='')
+    host = StringProperty(title='SMTP Host', default='[[SMTP_HOST]]')
+    port = IntProperty(title='SMTP Port', default='[[SMTP_PORT]]')
+    account = StringProperty(title='Account', default='[[SMTP_ACCOUNT]]')
+    password = StringProperty(title='Password', default='[[SMTP_PASSWORD]]')
     timeout = IntProperty(title='Timeout', default=10)
 
 
@@ -50,7 +50,7 @@ class SMTPConnection(object):
         logger (Logger): NIO logger from the enclosing block.
 
     """
-    
+
     def __init__(self, config, logger):
         self.host = config.host
         self.port = config.port
@@ -60,6 +60,7 @@ class SMTPConnection(object):
         self._logger = logger
         self._conn = None
         self._send_attempts = 0
+        self.max_send_retries = 1
 
     def connect(self):
         """ Connects to the configured SMTP server.
@@ -68,7 +69,7 @@ class SMTPConnection(object):
         self._logger.debug(
             "Connecting to SMTP: %s:%d" % (self.host, self.port)
         )
-        
+
         # attempt to connect to the SMTP server and authenticate.
         try:
             self._conn = SMTP_SSL(
@@ -107,16 +108,15 @@ class SMTPConnection(object):
 
             # acquire the connection lock and send the message
             self._conn.sendmail(frm, to, msg)
-            self._send_attempts = -1
+            self._send_attempts = 0
         except SMTPServerDisconnected as e:
-
             # if our connection is dead when we send, release the
             # connection lock and attempt to reconnect.
             self._logger.error(
                 "SMTP server disconnected, reconnecting..."
             )
             self.connect()
-            
+
             # we reraise the exception so we can do some generic
             # bookkeeping.
             raise e
@@ -126,9 +126,10 @@ class SMTPConnection(object):
             # increment the send attempts and make sure we're still
             # willing to try again. If not, abort.
             self._send_attempts += 1
-            if self._send_attempts < self.max_send_retries:
+            if self._send_attempts <= self.max_send_retries:
                 self.sendmail(frm, to, msg)
             else:
+                self._send_attempts = 0
                 raise e
 
     def disconnect(self):
@@ -154,7 +155,7 @@ class Email(Block):
     to = ListProperty(Identity, title='Receiver')
     server = ObjectProperty(SMTPConfig, title='Server')
     message = ObjectProperty(Message, title='Message')
-    
+
     def __init__(self):
         super().__init__()
         self._retry_conn = None
@@ -178,7 +179,14 @@ class Email(Block):
         # make a new connection to the SMTP server each time we get a new
         # batch of signals.
         smtp_conn = SMTPConnection(self.server, self._logger)
-        smtp_conn.connect()
+        try:
+            smtp_conn.connect()
+        except:
+            self._logger.error(
+                'Aborting sending emails. '
+                '{} signals discarded'.format( len(signals))
+            )
+            return
 
         # handle each incoming signal
         for signal in signals:
@@ -186,7 +194,7 @@ class Email(Block):
             try:
                 subject = self.message.subject(signal)
             except Exception as e:
-                subject = self.message.subject.default
+                subject = self.get_defaults()['message']['subject']
                 self._logger.error(
                     "Email subject evaluation failed: {0}: {1}".format(
                         type(e).__name__, str(e))
@@ -195,13 +203,13 @@ class Email(Block):
             try:
                 body = self.message.body(signal)
             except Exception as e:
-                body = self.message.body.default
+                body = self.get_defaults()['message']['body']
                 self._logger.error(
                     "Email body evaluation failed: {0}: {1}".format(
                         type(e).__name__, str(e))
                 )
 
-                
+
             self._send_to_all(smtp_conn, subject, body)
 
         # drop the SMTP connection after each round of signals
@@ -226,8 +234,12 @@ class Email(Block):
         for rcp in self.to:
             # customize the message to each recipient
             msg['To'] = rcp.name
-            conn.sendmail(sender, rcp.email, msg.as_string())
-    
+            try:
+                conn.sendmail(sender, rcp.email, msg.as_string())
+                self._logger.debug("Sent mail to: {}".format(rcp.email))
+            except Exception as e:
+                self._logger.error("Failed to send mail: {}".format(e))
+
     def _construct_msg(self, subject, body):
         """ Construct the multipart message. Mail clients unable to
         render HTML will default to plaintext.
@@ -235,7 +247,7 @@ class Email(Block):
         Args:
             subject (str): The subject line.
             body (str): The message body.
-        
+
         Returns:
             msg (MIMEMultipart): A message containing generic
                 headers, and HTML version, and a plaintext version.
