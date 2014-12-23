@@ -58,8 +58,8 @@ class TestEmail(NIOBlockTestCase):
             }
         ])
 
-    @patch("email_block.email_block.SMTPConnection.sendmail")
-    @patch("email_block.email_block.SMTPConnection.connect")
+    @patch.object(SMTPConnection, 'sendmail')
+    @patch.object(SMTPConnection, "connect")
     def test_send_one_to_one(self, mock_connect, mock_send):
         process_event = Event()
         signals = [TestSignal(3)]
@@ -76,8 +76,8 @@ class TestEmail(NIOBlockTestCase):
         )
         blk.stop()
 
-    @patch("email_block.email_block.SMTPConnection.sendmail")
-    @patch("email_block.email_block.SMTPConnection.connect",
+    @patch.object(SMTPConnection, 'sendmail')
+    @patch.object(SMTPConnection, "connect",
            side_effect=Exception('mock connection fail'))
     def test_conn_error(self, mock_connect, mock_send):
         process_event = Event()
@@ -92,10 +92,10 @@ class TestEmail(NIOBlockTestCase):
         self.assertEqual(1, blk._logger.error.call_count)
         blk.stop()
 
-    @patch("email_block.email_block.SMTPConnection.sendmail",
+    @patch.object(SMTPConnection, 'sendmail',
            side_effect=Exception('mock connection fail'))
-    @patch("email_block.email_block.SMTPConnection.connect")
-    @patch("email_block.email_block.SMTPConnection.disconnect")
+    @patch.object(SMTPConnection, "connect")
+    @patch.object(SMTPConnection, 'disconnect')
     def test_sendmail_error(self, mock_disconnect, mock_connect, mock_send):
         process_event = Event()
         signals = [TestSignal(3)]
@@ -109,8 +109,8 @@ class TestEmail(NIOBlockTestCase):
         self.assertEqual(1, blk._logger.error.call_count)
         blk.stop()
 
-    @patch("email_block.email_block.SMTPConnection.sendmail")
-    @patch("email_block.email_block.SMTPConnection.connect")
+    @patch.object(SMTPConnection, 'sendmail')
+    @patch.object(SMTPConnection, "connect")
     def test_send_one_to_multiple(self, mock_connect, mock_send):
         process_event = Event()
         signals = [TestSignal(23)]
@@ -123,8 +123,8 @@ class TestEmail(NIOBlockTestCase):
         self.assertEqual(3, mock_send.call_count)
         blk.stop()
 
-    @patch("email_block.email_block.SMTPConnection.sendmail")
-    @patch("email_block.email_block.SMTPConnection.connect")
+    @patch.object(SMTPConnection, 'sendmail')
+    @patch.object(SMTPConnection, "connect")
     def test_send_multiple_to_multiple(self, mock_connect, mock_send):
         process_event = Event()
         signals = [TestSignal(23), TestSignal(32), TestSignal(42)]
@@ -137,8 +137,8 @@ class TestEmail(NIOBlockTestCase):
         self.assertEqual(9, mock_send.call_count)
         blk.stop()
 
-    @patch("email_block.email_block.Email._send_to_all")
-    @patch("email_block.email_block.SMTPConnection.connect")
+    @patch.object(Email, '_send_to_all')
+    @patch.object(SMTPConnection, "connect")
     def test_body_syntax_err(self, mock_connect, mock_send):
         process_event = Event()
         signals = [TestSignal(23)]
