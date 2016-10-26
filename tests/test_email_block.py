@@ -3,7 +3,6 @@ from ..email_block import Email, SMTPConnection, SMTPConfig
 from nio.testing.block_test_case import NIOBlockTestCase
 from threading import Event
 from nio.signal.base import Signal
-from smtplib import SMTP_SSL, SMTPServerDisconnected
 
 
 class EmailTestBlock(Email):

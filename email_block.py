@@ -1,11 +1,9 @@
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from smtplib import SMTP_SSL, SMTPServerDisconnected
-from nio.util.discovery import discoverable
 from nio.block.base import Block
 from nio.properties.list import ListProperty
 from nio.properties.object import ObjectProperty
-from nio.properties.timedelta import TimeDeltaProperty
 from nio.properties import Property
 from nio.properties.string import StringProperty
 from nio.properties.int import IntProperty
