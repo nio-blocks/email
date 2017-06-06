@@ -1,0 +1,24 @@
+{
+  "nio/Email": {
+    "Version": "1.0.0",
+    "Input": "Anhy list of signals.",
+    "Description": "For each incoming signal, build the configured message and send it to each recipient.",
+    "Properties": {
+      "message": {
+        "description": "Email message including sender, subject and body."
+      },
+      "to": {
+        "description": "List of names and email addresses to send emails to."
+      },
+      "server": {
+        "description": "Server configuration."
+      }
+    },
+    "Commands": {},
+    "Output": "None",
+    "Category": "WebService",
+    "Dependencies": [
+      "None"
+    ]
+  }
+}
