@@ -2,6 +2,9 @@
   "nio/Email": {
     "version": "0.1.0",
     "description": "For each incoming signal, build the configured message and send it to each recipient.",
+    "categories": [
+      "Communication"
+    ],
     "properties": {
       "message": {
         "title": "Message",
