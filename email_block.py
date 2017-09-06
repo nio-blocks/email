@@ -1,13 +1,10 @@
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from smtplib import SMTP_SSL, SMTPServerDisconnected
-from nio.block.base import Block
-from nio.properties.list import ListProperty
-from nio.properties.object import ObjectProperty
-from nio.properties import Property
-from nio.properties.string import StringProperty
-from nio.properties.int import IntProperty
-from nio.properties.holder import PropertyHolder
+
+from nio import TerminatorBlock
+from nio.properties import ListProperty, ObjectProperty, PropertyHolder, \
+    Property, StringProperty, IntProperty, VersionProperty
 
 
 HTML_MSG_FORMAT = """\
@@ -142,7 +139,7 @@ class SMTPConnection(object):
             self.logger.error("Error while disconnecting: %s" % e)
 
 
-class Email(Block):
+class Email(TerminatorBlock):
     """ A block for sending email.
 
     Properties:
@@ -151,6 +148,7 @@ class Email(Block):
         message (Message): The message contents and sender name.
 
     """
+    version = VersionProperty('0.1.0')
     to = ListProperty(Identity, title='Receiver', default=[])
     server = ObjectProperty(SMTPConfig, title='Server', allow_none=False)
     message = ObjectProperty(Message, title='Message', allow_none=True)

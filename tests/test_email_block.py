@@ -1,8 +1,9 @@
 from unittest.mock import patch, MagicMock, ANY
 from ..email_block import Email, SMTPConnection, SMTPConfig
+from threading import Event
+
 from nio.testing.block_test_case import NIOBlockTestCase
 from nio.util.discovery import not_discoverable
-from threading import Event
 from nio.signal.base import Signal
 
 
@@ -78,8 +79,10 @@ class TestEmail(NIOBlockTestCase):
         blk.stop()
 
     @patch.object(SMTPConnection, 'sendmail')
-    @patch.object(SMTPConnection, "connect",
-           side_effect=Exception('mock connection fail'))
+    @patch.object(
+        SMTPConnection,
+        "connect", side_effect=Exception('mock connection fail')
+    )
     def test_conn_error(self, mock_connect, mock_send):
         process_event = Event()
         signals = [TestSignal(3)]
@@ -93,8 +96,10 @@ class TestEmail(NIOBlockTestCase):
         self.assertEqual(1, blk.logger.error.call_count)
         blk.stop()
 
-    @patch.object(SMTPConnection, 'sendmail',
-           side_effect=Exception('mock connection fail'))
+    @patch.object(
+        SMTPConnection,
+        'sendmail', side_effect=Exception('mock connection fail')
+    )
     @patch.object(SMTPConnection, "connect")
     @patch.object(SMTPConnection, 'disconnect')
     def test_sendmail_error(self, mock_disconnect, mock_connect, mock_send):

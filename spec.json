@@ -1,10 +1,43 @@
 {
   "nio/Email": {
-    "version": "0.0.1",
-    "description": "",
-    "inputs": {},
+    "version": "0.1.0",
+    "description": "For each incoming signal, build the configured message and send it to each recipient.",
+    "properties": {
+      "message": {
+        "title": "Message",
+        "type": "ObjectType",
+        "description": "Email message including sender, subject and body.",
+        "default": {
+          "body": "<No Value>",
+          "subject": "<No Value>",
+          "sender": ""
+        }
+      },
+      "server": {
+        "title": "Server",
+        "type": "ObjectType",
+        "description": "Server configuration.",
+        "default": {
+          "port": "[[SMTP_PORT]]",
+          "account": "[[SMTP_ACCOUNT]]",
+          "host": "[[SMTP_HOST]]",
+          "password": "[[SMTP_PASSWORD]]",
+          "timeout": 10
+        }
+      },
+      "to": {
+        "title": "Receiver",
+        "type": "ListType",
+        "description": "List of names and email addresses to send emails to.",
+        "default": []
+      }
+    },
+    "inputs": {
+      "default": {
+        "description": "Any list of signals."
+      }
+    },
     "outputs": {},
-    "properties": {},
     "commands": {}
   }
 }
