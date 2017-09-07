@@ -148,7 +148,7 @@ class Email(TerminatorBlock):
         message (Message): The message contents and sender name.
 
     """
-    version = VersionProperty('0.1.0')
+    version = VersionProperty("0.1.0")
     to = ListProperty(Identity, title='Receiver', default=[])
     server = ObjectProperty(SMTPConfig, title='Server', allow_none=False)
     message = ObjectProperty(Message, title='Message', allow_none=True)
