@@ -9,7 +9,7 @@
       "message": {
         "title": "Message",
         "type": "ObjectType",
-        "description": "Email message including sender, subject and body.",
+        "description": "Email message including sender, subject, and body.",
         "default": {
           "body": "<No Value>",
           "subject": "<No Value>",
