@@ -18,7 +18,7 @@ HTML_MSG_FORMAT = """\
 
 
 class Identity(PropertyHolder):
-    name = StringProperty(title='Name', default='John Doe')
+    name = StringProperty(title='Name', default='John Doe', allow_none=True)
     email = StringProperty(title='Email Address', default='')
 
 
@@ -205,12 +205,12 @@ class Email(TerminatorBlock):
                         type(e).__name__, str(e))
                 )
 
-            self._send_to_all(smtp_conn, subject, body)
+            self._send_to_all(smtp_conn, subject, body, signal)
 
         # drop the SMTP connection after each round of signals
         smtp_conn.disconnect()
 
-    def _send_to_all(self, conn, subject, body):
+    def _send_to_all(self, conn, subject, body, signal):
         """ Build a message based on the provided content and send it to
         each of the configured recipients.
 
@@ -228,10 +228,10 @@ class Email(TerminatorBlock):
         msg = self._construct_msg(subject, body)
         for rcp in self.to():
             # customize the message to each recipient
-            msg['To'] = rcp.name()
+            msg['To'] = rcp.name(signal)
             try:
-                conn.sendmail(sender, rcp.email(), msg.as_string())
-                self.logger.debug("Sent mail to: {}".format(rcp.email))
+                conn.sendmail(sender, rcp.email(signal), msg.as_string())
+                self.logger.debug("Sent mail to: {}".format(rcp.email(signal)))
             except Exception as e:
                 self.logger.error("Failed to send mail: {}".format(e))
 
