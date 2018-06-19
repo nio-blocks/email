@@ -156,7 +156,8 @@ class TestEmail(NIOBlockTestCase):
         blk.start()
         blk.process_signals(signals)
         process_event.wait(1)
-        mock_send.assert_called_once_with(ANY, '<No Value>', '<No Value>')
+        mock_send.assert_called_once_with(
+            ANY, '<No Value>', '<No Value>', signals[0])
         blk.stop()
 
     def test_sendmail_retry(self):
